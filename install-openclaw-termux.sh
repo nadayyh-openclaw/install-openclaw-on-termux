@@ -421,8 +421,8 @@ PORT=${PORT:-18789}
 read -p "请输入自定义 Token (用于安全访问，建议强密码) [留空随机生成]: " TOKEN
 if [ -z "$TOKEN" ]; then
     # 生成随机 Token
-    TIMESTAMP=$(date +%s)
-    TOKEN="token${TIMESTAMP: -6}"
+    RANDOM_PART=$(date +%s | md5sum | cut -c 1-8)
+    TOKEN="token$RANDOM_PART"
     echo -e "${GREEN}生成的随机 Token: $TOKEN${NC}"
 fi
 
@@ -435,7 +435,7 @@ if [ $UNINSTALL -eq 1 ]; then
     exit 0
 fi
 
-log "脚本开始执行，用户配置: 端口=$PORT, Token=${TOKEN:0:10}..., 自启动=$AUTO_START"
+log "脚本开始执行，用户配置: 端口=$PORT, Token=$TOKEN, 自启动=$AUTO_START"
 check_deps
 configure_npm
 apply_patches
