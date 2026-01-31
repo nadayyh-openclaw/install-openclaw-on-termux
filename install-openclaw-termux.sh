@@ -3,7 +3,7 @@
 # Openclaw Termux Deployment Script v2.0
 # ==========================================
 #
-# Usage: curl -sL <script_url> | bash -s -- [options]
+# Usage: bash install-openclaw-termux.sh [options]
 #
 # Options:
 #   --help, -h       Show help information
@@ -12,10 +12,10 @@
 #   --uninstall, -u  Uninstall Openclaw and clean up configurations
 #
 # Examples:
-#   curl -sL <script_url> | bash
-#   curl -sL <script_url> | bash -s -- --verbose
-#   curl -sL <script_url> | bash -s -- --dry-run
-#   curl -sL <script_url> | bash -s -- --uninstall
+#   bash install-openclaw-termux.sh
+#   bash install-openclaw-termux.sh --verbose
+#   bash install-openclaw-termux.sh --dry-run
+#   bash install-openclaw-termux.sh --uninstall
 #
 # ==========================================
 
