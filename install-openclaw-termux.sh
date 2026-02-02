@@ -162,13 +162,36 @@ configure_npm() {
     grep -qxF "export PATH=$NPM_BIN:$PATH" "$BASHRC" || echo "export PATH=$NPM_BIN:$PATH" >> "$BASHRC"
     export PATH="$NPM_BIN:$PATH"
 
+    # 在安装前创建必要的目录和符号链接（Termux 兼容性处理）
+    log "创建 Termux 兼容性目录"
+    mkdir -p "$LOG_DIR" "$HOME/tmp"
+    if [ $? -ne 0 ]; then
+        log "目录创建失败"
+        echo -e "${RED}错误：目录创建失败${NC}"
+        exit 1
+    fi
+
+    # 创建 /tmp 目录（如果不存在）并创建符号链接
+    if [ ! -d "/tmp" ]; then
+        log "/tmp 目录不存在，尝试创建"
+        mkdir -p /tmp 2>/dev/null || true
+    fi
+
+    # 创建 /tmp/openclaw 符号链接到 $LOG_DIR
+    if [ -d "/tmp" ]; then
+        log "创建 /tmp/openclaw 符号链接"
+        rm -rf /tmp/openclaw 2>/dev/null || true
+        ln -sf "$LOG_DIR" /tmp/openclaw 2>/dev/null || true
+    fi
+
     if [ -f "$NPM_BIN/openclaw" ]; then
         log "Openclaw 已安装，跳过安装"
         echo -e "${GREEN}✅ Openclaw 已安装，跳过安装${NC}"
     else
         log "开始安装 Openclaw"
         # 安装 Openclaw (静默安装)
-        run_cmd npm i -g openclaw
+        # 设置环境变量跳过 node-llama-cpp 编译（Termux 环境不支持）
+        run_cmd NODE_LLAMA_CPP_SKIP_DOWNLOAD=true npm i -g openclaw
         if [ $? -ne 0 ]; then
             log "Openclaw 安装失败"
             echo -e "${RED}错误：Openclaw 安装失败${NC}"
@@ -178,12 +201,6 @@ configure_npm() {
     fi
 
     BASE_DIR="$NPM_GLOBAL/lib/node_modules/openclaw"
-    mkdir -p "$LOG_DIR" "$HOME/tmp"
-    if [ $? -ne 0 ]; then
-        log "目录创建失败"
-        echo -e "${RED}错误：目录创建失败${NC}"
-        exit 1
-    fi
 }
 
 apply_patches() {
@@ -247,11 +264,11 @@ setup_autostart() {
 # WARNING: This section contains your access token - keep ~/.bashrc secure
 export TERMUX_VERSION=1
 export TMPDIR=\$HOME/tmp
-export OPENCLAW_TOKEN=$TOKEN
+export OPENCLAW_GATEWAY_TOKEN=$TOKEN
 export PATH=\$NPM_BIN:\$PATH
 sshd 2>/dev/null
 termux-wake-lock 2>/dev/null
-alias ocr="pkill -9 node 2>/dev/null; tmux kill-session -t openclaw 2>/dev/null; sleep 1; tmux new -d -s openclaw; sleep 1; tmux send-keys -t openclaw \"export PATH=$NPM_BIN:$PATH TMPDIR=$HOME/tmp; openclaw gateway --bind lan --port $PORT --allow-unconfigured\" C-m"
+alias ocr="pkill -9 node 2>/dev/null; tmux kill-session -t openclaw 2>/dev/null; sleep 1; tmux new -d -s openclaw; sleep 1; tmux send-keys -t openclaw \"export PATH=$NPM_BIN:$PATH TMPDIR=\$HOME/tmp; export OPENCLAW_GATEWAY_TOKEN=$TOKEN; openclaw gateway --bind lan --port $PORT --token \$OPENCLAW_GATEWAY_TOKEN --allow-unconfigured\" C-m"
 alias oclog='tmux attach -t openclaw'
 alias ockill='pkill -9 node 2>/dev/null; tmux kill-session -t openclaw 2>/dev/null'
 # --- OpenClaw End ---
@@ -301,7 +318,7 @@ start_service() {
     sleep 1
     
     # 将输出重定向到一个临时文件，如果 tmux 崩了也能看到报错
-    tmux send-keys -t openclaw "export PATH=$NPM_BIN:$PATH TMPDIR=$HOME/tmp; openclaw gateway --bind lan --port $PORT --allow-unconfigured 2>&1 | tee $LOG_DIR/runtime.log" C-m
+    tmux send-keys -t openclaw "export PATH=$NPM_BIN:$PATH TMPDIR=$HOME/tmp; export OPENCLAW_GATEWAY_TOKEN=$TOKEN; openclaw gateway --bind lan --port $PORT --token \$OPENCLAW_GATEWAY_TOKEN --allow-unconfigured 2>&1 | tee $LOG_DIR/runtime.log" C-m
     
     log "服务指令已发送"
     echo -e "${GREEN}[6/6] 部署指令发送完毕${NC}"
