@@ -539,13 +539,19 @@ echo -e "   🦞 Openclaw Termux 部署工具"
 echo -e "==========================================${NC}"
 
 # --- 交互配置 ---
-read -p "请输入 Gateway 端口号 [默认: 18789]: " PORT
-PORT=${PORT:-18789}
-
-# 验证 PORT 不为空
-if [ -z "$PORT" ]; then
-    echo -e "${RED}错误：端口号不能为空，使用默认值 18789${NC}"
+read -p "请输入 Gateway 端口号 [默认: 18789]: " INPUT_PORT
+if [ -z "$INPUT_PORT" ]; then
+    echo -e "${GREEN}✓ 使用默认端口: 18789${NC}"
     PORT=18789
+else
+    # 验证输入的端口号是否为数字
+    if ! [[ "$INPUT_PORT" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}错误：端口号必须是数字，使用默认值 18789${NC}"
+        PORT=18789
+    else
+        PORT=$INPUT_PORT
+        echo -e "${GREEN}✓ 使用端口: $PORT${NC}"
+    fi
 fi
 
 read -p "请输入自定义 Token (用于安全访问，建议强密码) [留空随机生成]: " TOKEN
