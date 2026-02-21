@@ -74,6 +74,39 @@ trap 'echo -e "${RED}错误：脚本执行失败，请检查上述输出${NC}"; 
 # ==========================================
 
 # Function definitions
+
+apply_koffi_stub() {
+    # Apply koffi stub for Termux compatibility (android-arm64)
+    # koffi is only used by pi-tui for Windows VT input, which never executes on Android
+    log "应用 koffi stub"
+    echo -e "${YELLOW}[2.5/6] 正在应用 koffi 兼容性修复...${NC}"
+    
+    KOFFI_DIR="$NPM_GLOBAL/lib/node_modules/openclaw/node_modules/koffi"
+    
+    if [ -d "$KOFFI_DIR" ]; then
+        cat > "$KOFFI_DIR/index.js" << 'EOF'
+// Koffi stub for android-arm64 — native module not available on this platform.
+// koffi is only used by pi-tui for Windows VT input (enableWindowsVTInput),
+// which is guarded by process.platform !== "win32" and never executes here.
+const handler = {
+  get(_, prop) {
+    if (prop === '__esModule') return false;
+    if (prop === 'default') return proxy;
+    if (prop === 'then') return undefined;
+    return function() { throw new Error('koffi stub: not available on android-arm64'); };
+  }
+};
+const proxy = new Proxy({}, handler);
+module.exports = proxy;
+module.exports.default = proxy;
+EOF
+        log "koffi stub 应用成功"
+        echo -e "${GREEN}✓ koffi stub 应用成功${NC}"
+    else
+        log "koffi 目录不存在，跳过 stub"
+    fi
+}
+
 check_deps() {
     # Check and install basic dependencies
     log "开始检查基础环境"
@@ -261,7 +294,7 @@ configure_npm() {
                 if [ $FORCE_UPDATE -eq 1 ]; then
                     log "强制更新模式，直接更新"
                     echo -e "${YELLOW}正在更新 Openclaw...${NC}"
-                    run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true MAKEFLAGS="" npm i -g openclaw
+                    run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true npm i -g openclaw --ignore-scripts
                     if [ $? -ne 0 ]; then
                         log "Openclaw 更新失败"
                         echo -e "${RED}错误：Openclaw 更新失败${NC}"
@@ -269,6 +302,8 @@ configure_npm() {
                     fi
                     log "Openclaw 更新完成"
                     echo -e "${GREEN}✅ Openclaw 已更新到 $LATEST_VERSION${NC}"
+                    # 重新应用 koffi stub
+                    apply_koffi_stub
                 else
                     read -p "是否更新到新版本? (y/n) [默认: y]: " UPDATE_CHOICE
                     UPDATE_CHOICE=${UPDATE_CHOICE:-y}
@@ -276,7 +311,7 @@ configure_npm() {
                     if [ "$UPDATE_CHOICE" = "y" ] || [ "$UPDATE_CHOICE" = "Y" ]; then
                         log "开始更新 Openclaw"
                         echo -e "${YELLOW}正在更新 Openclaw...${NC}"
-                        run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true MAKEFLAGS="" npm i -g openclaw
+                        run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true npm i -g openclaw --ignore-scripts
                         if [ $? -ne 0 ]; then
                             log "Openclaw 更新失败"
                             echo -e "${RED}错误：Openclaw 更新失败${NC}"
@@ -284,6 +319,8 @@ configure_npm() {
                         fi
                         log "Openclaw 更新完成"
                         echo -e "${GREEN}✅ Openclaw 已更新到 $LATEST_VERSION${NC}"
+                        # 重新应用 koffi stub
+                        apply_koffi_stub
                     else
                         log "用户选择跳过更新"
                         echo -e "${YELLOW}跳过更新，使用当前版本${NC}"
@@ -297,10 +334,9 @@ configure_npm() {
     else
         log "开始安装 Openclaw"
         echo -e "${YELLOW}正在安装 Openclaw...${NC}"
-        # 安装 Openclaw (静默安装)
+        # 安装 Openclaw (使用 --ignore-scripts 跳过原生模块编译)
         # 设置环境变量跳过 node-llama-cpp 下载/编译（Termux 环境不支持）
-        # 同时设置 MAKEFLAGS 避免 koffi 编译时的 -j 选项问题
-        run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true MAKEFLAGS="" npm i -g openclaw
+        run_cmd env NODE_LLAMA_CPP_SKIP_DOWNLOAD=true npm i -g openclaw --ignore-scripts
         if [ $? -ne 0 ]; then
             log "Openclaw 安装失败"
             echo -e "${RED}错误：Openclaw 安装失败${NC}"
@@ -315,6 +351,9 @@ configure_npm() {
     fi
 
     BASE_DIR="$NPM_GLOBAL/lib/node_modules/openclaw"
+    
+    # 应用 koffi stub (Termux 兼容性修复)
+    apply_koffi_stub
 }
 
 apply_patches() {
